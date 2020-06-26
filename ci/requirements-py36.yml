@@ -4,4 +4,4 @@ dependencies:
   - pytest
   - numpy
   - scipy
-  - xarrray
+  - xarray

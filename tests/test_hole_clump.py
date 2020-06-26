@@ -10,8 +10,8 @@ def test_hole_clump(xmax, vmax, nx, nv, nu, ne):
     model = HoleClump(xmax, vmax, nx, nv, nu, ne)
     rng = np.random.RandomState(0)
     finit = rng.randn(nx, nv)
-    vinit = 1.0
-    einit = 1.0
+    vinit = rng.randn(nx)
+    einit = rng.randn(nx)
     result = model.solve((0, 1e-5), finit, vinit, einit)
     assert np.isfinite(result["y"]).all()
     model.to_xarray(result)

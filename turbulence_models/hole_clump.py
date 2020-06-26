@@ -32,8 +32,8 @@ class HoleClump:
             F = f[:self.nx * self.nv, :].reshape(self.nx, self.nv, -1)
         else: 
             F = f[:self.nx * self.nv].reshape(self.nx, self.nv)
-        V = f[self.nx * self.nv]
-        E = f[self.nx * self.nv + 1]
+        V = f[self.nx * self.nv: self.nx * (self.nv + 1)]
+        E = f[self.nx * (self.nv + 1): self.nx * (self.nv + 2)]
         return F, V, E
 
     def solve(self, t_span, finit, vinit, einit, **kwargs):
@@ -41,7 +41,7 @@ class HoleClump:
         Solve the differential equation
         
         finit: nx * nv
-        vinit, einit: scalars
+        vinit, einit: nx
         """
         assert finit.shape == (self.nx, self.nv)
         coef = e**2 / me / eps0
@@ -53,15 +53,14 @@ class HoleClump:
                            [(0, 0), (1, 1)], 'constant', constant_values=0)
             dfdx = (f_pad[2:, 1:-1] - f_pad[:-2, 1:-1]) / (2 * self.dx)
             dfdv = (f_pad[1:-1, 2:] - f_pad[1:-1, :-2]) / (2 * self.dv)
-            dfdt = -self.v * dfdx + E * dfdv
+            dfdt = -self.v * dfdx + E[:, np.newaxis] * dfdv
 
             dvdt = -E - self.nu * V
-            # TODO is E a scalar? Should we integrate over x?
-            dEdt = coef * (self.ne * V + np.sum(f * self.v) * self.dv)
+            dEdt = coef * (self.ne * V + np.sum(f * self.v, axis=-1) * self.dv)
             
-            return np.concatenate([dfdt.ravel(), [dvdt], [dEdt]])
+            return np.concatenate([dfdt.ravel(), dvdt, dEdt])
 
-        finit = np.concatenate([finit.ravel(), [vinit], [einit]])
+        finit = np.concatenate([finit.ravel(), vinit, einit])
         result = integrate.solve_ivp(dfdt, t_span, finit, **kwargs)
         
         result["f"], result["V"], result['E'] = self._encode(
@@ -77,8 +76,8 @@ class HoleClump:
         return xr.Dataset(
             {
                 "F": (("x", "v", "time"), result["f"]),
-                "V": ("time", result["V"]),
-                "E": ("time", result["E"]),
+                "V": (("x", "time"), result["V"]),
+                "E": (("x", "time"), result["E"]),
                 "status": result["status"],
                 "message": result["message"],
                 "success": result["success"],
